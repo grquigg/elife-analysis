@@ -137,6 +137,7 @@ class Classifier(nn.Module):
 
 
 def get_label_list(data_dir, task):
+    #task can be a list of tasks
     with open(f"{data_dir}/{task}/metadata.json", "r") as f:
         return json.load(f)["labels"]
 

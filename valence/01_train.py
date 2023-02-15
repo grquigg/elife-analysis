@@ -4,6 +4,7 @@ import pickle
 import torch
 import torch.nn as nn
 import transformers
+import glob
 
 from contextlib import nullcontext
 from torch.optim import AdamW
@@ -103,13 +104,17 @@ def main():
     args = parser.parse_args()
 
     tokenizer = BertTokenizer.from_pretrained(classification_lib.PRE_TRAINED_MODEL_NAME)
-
+    if(args.task == "all"):
+        tasks = []
+        for filename in glob.glob(f"{args.data_dir}/*/"):
+            task = filename.split("/")[1]
+            print(task)
+            labels = classification_lib.get_label_list(args.data_dir, task)
+            print(labels)
+    task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
     labels = classification_lib.get_label_list(args.data_dir, args.task)
     model = classification_lib.Classifier(len(labels)).to(DEVICE)
     model.loss_fn.to(DEVICE)
-
-    task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
-
     do_train(tokenizer, model, task_dir)
 
 

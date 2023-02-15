@@ -43,14 +43,19 @@ HistoryItem = collections.namedtuple(
 Example = collections.namedtuple("Example", "identifier text target".split())
 
 
-def do_train(tokenizer, model, task_dir):
+def do_train(tokenizer, model, task_dir, multi_train=False):
     """Train on train set, validating on validation set."""
-
-    (
-        train_data_loader,
-        val_data_loader,
-    ) = classification_lib.build_data_loaders(task_dir, tokenizer)
-
+    if(multi_train):
+        train_data_loaders = []
+        val_data_loaders = []
+        for task in task_dir:
+            (
+                train_data_loader,
+                val_data_loader,
+            ) = classification_lib.build_data_loaders(task, tokenizer)
+            train_data_loaders.append(train_data_loader)
+            val_data_loaders.append(val_data_loader)
+    print("okay")
     # Optimizer and scheduler (boilerplatey)
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
     total_steps = len(train_data_loader) * EPOCHS
@@ -76,7 +81,7 @@ def do_train(tokenizer, model, task_dir):
         train_acc, train_loss = classification_lib.train_or_eval(
             classification_lib.TRAIN,
             model,
-            train_data_loader,
+            train_data_loaders,
             DEVICE,
             optimizer=optimizer,
             scheduler=scheduler,
@@ -84,7 +89,7 @@ def do_train(tokenizer, model, task_dir):
 
         # Run train_or_eval on validation set in EVAL mode
         val_acc, val_loss = classification_lib.train_or_eval(
-            classification_lib.EVAL, model, val_data_loader, DEVICE
+            classification_lib.EVAL, model, val_data_loaders, DEVICE, multi_train=multi_train
         )
 
         # Recording metadata
@@ -105,17 +110,25 @@ def main():
 
     tokenizer = BertTokenizer.from_pretrained(classification_lib.PRE_TRAINED_MODEL_NAME)
     if(args.task == "all"):
+        print("all")
         tasks = []
+        all_labels = []
+        dirs = []
         for filename in glob.glob(f"{args.data_dir}/*/"):
             task = filename.split("/")[1]
-            print(task)
             labels = classification_lib.get_label_list(args.data_dir, task)
-            print(labels)
-    task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
-    labels = classification_lib.get_label_list(args.data_dir, args.task)
-    model = classification_lib.Classifier(len(labels)).to(DEVICE)
-    model.loss_fn.to(DEVICE)
-    do_train(tokenizer, model, task_dir)
+            tasks.append(task)
+            all_labels.append(labels)
+            task_dir = classification_lib.make_checkpoint_path(args.data_dir, task)
+            dirs.append(task_dir)
+        model = classification_lib.Classifier(len(all_labels[0])).to(DEVICE)
+        model.loss_fn.to(DEVICE)
+        do_train(tokenizer, model, dirs, multi_train=True)
+    else:
+        task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
+        model = classification_lib.Classifier(len(labels)).to(DEVICE)
+        model.loss_fn.to(DEVICE)
+        do_train(tokenizer, model, task_dir)
 
 
 if __name__ == "__main__":

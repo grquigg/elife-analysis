@@ -138,6 +138,8 @@ class Classifier(nn.Module):
 
 def get_label_list(data_dir, task):
     #task can be a list of tasks
+    print(data_dir)
+    print(task)
     with open(f"{data_dir}/{task}/metadata.json", "r") as f:
         return json.load(f)["labels"]
 
@@ -156,6 +158,7 @@ def train_or_eval(
     return_preds=False,
     optimizer=None,
     scheduler=None,
+    multi_train = False
 ):
   """Do a forward pass of the model, backpropagating only for TRAIN passes.
   """

@@ -85,6 +85,7 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
             DEVICE,
             optimizer=optimizer,
             scheduler=scheduler,
+            multi_train=multi_train
         )
 
         # Run train_or_eval on validation set in EVAL mode

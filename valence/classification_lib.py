@@ -48,6 +48,41 @@ def get_text_and_labels(task_dir, subset, get_labels=False):
 
   return identifiers, texts, labels
 
+class MultiTaskClassificationDataset(Dataset):
+
+    def __init__(self, task_dir, subset, tokenizer, max_len=512):
+        (
+            self.identifiers,
+            self.texts,
+            self.target_indices,
+        ) = get_text_and_labels(task_dir, subset, get_labels=True)
+        target_set = set(self.target_indices)
+        assert list(sorted(target_set)) == list(range(len(target_set)))
+        eye = np.eye(
+            len(target_set), dtype=np.float64
+        )  # An identity matrix to easily switch to and from one-hot encoding.
+        self.targets = [eye[int(i)] for i in self.target_indices]
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, item):
+        text = str(self.texts[item])
+        target = self.targets[item]
+
+        encoding = tokenizer_fn(self.tokenizer, text)
+
+        return {
+            "reviews_text": text,
+            "input_ids": encoding["input_ids"].flatten(),
+            "attention_mask": encoding["attention_mask"].flatten(),
+            "targets": torch.tensor(target, dtype=torch.float64),
+            "target_indices": self.target_indices[item],
+            "identifier": self.identifiers[item],
+        }
+
 class ClassificationDataset(Dataset):
     """A torch.utils.data.Dataset for binary classification."""
 
@@ -178,39 +213,45 @@ def train_or_eval(
   results = []
   losses = []
   correct_predictions = 0
-  n_examples = len(data_loader.dataset)
+  n_examples = len(data_loader.dataset) if not multi_train else len(data_loader[0].dataset)
 
   with context:
-    for d in tqdm.tqdm(data_loader): # Load batchwise
-      input_ids, attention_mask, targets, target_indices = [
-          d[k].to(device) # Move all this stuff to gpu
-          for k in "input_ids attention_mask targets target_indices".split()
-      ]
+    if(multi_train):
+        print(multi_train)
+        #weird code for this but it'll hopefully do the trick
+        index = 0
+        #second option: build a custom dataloader
+    else:
+        for d in tqdm.tqdm(data_loader): # Load batchwise
+          input_ids, attention_mask, targets, target_indices = [
+              d[k].to(device) # Move all this stuff to gpu
+              for k in "input_ids attention_mask targets target_indices".split()
+          ]
 
-      outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-      # ^ this gives logits
-      _, preds = torch.max(outputs, dim=1)
-      # TODO(nnk): make this argmax!
-      if return_preds:
-      # If this is being run as part of prediction, we need to return the
-      # predicted indices. If we are just evaluating, we just need loss and/or
-      # accuracy
-        results.append((d["identifier"], preds.cpu().numpy().tolist()))
+          outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+          # ^ this gives logits
+          _, preds = torch.max(outputs, dim=1)
+          # TODO(nnk): make this argmax!
+          if return_preds:
+          # If this is being run as part of prediction, we need to return the
+          # predicted indices. If we are just evaluating, we just need loss and/or
+          # accuracy
+            results.append((d["identifier"], preds.cpu().numpy().tolist()))
 
-      # We need loss for both train and eval
-      loss = model.loss_fn(outputs, targets)
-      losses.append(loss.item())
+          # We need loss for both train and eval
+          loss = model.loss_fn(outputs, targets)
+          losses.append(loss.item())
 
-      # Counting correct predictions in order to calculate accuracy later
-      correct_predictions += torch.sum(preds == target_indices)
+          # Counting correct predictions in order to calculate accuracy later
+          correct_predictions += torch.sum(preds == target_indices)
 
-      if is_train:
-        # Backpropagation steps
-        loss.backward()
-        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        scheduler.step()
-        optimizer.zero_grad()
+          if is_train:
+            # Backpropagation steps
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
 
   if return_preds:
     return results

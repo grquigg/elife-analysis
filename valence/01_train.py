@@ -46,16 +46,10 @@ Example = collections.namedtuple("Example", "identifier text target".split())
 def do_train(tokenizer, model, task_dir, multi_train=False):
     """Train on train set, validating on validation set."""
     if(multi_train):
-        train_data_loaders = []
-        val_data_loaders = []
-        for task in task_dir:
-            (
-                train_data_loader,
-                val_data_loader,
-            ) = classification_lib.build_data_loaders(task, tokenizer)
-            train_data_loaders.append(train_data_loader)
-            val_data_loaders.append(val_data_loader)
-    print("okay")
+       (
+           train_data_loader,
+           val_data_loader,
+       ) = classification_lib.build_data_loader_multitask(task_dir, tokenizer)
     # Optimizer and scheduler (boilerplatey)
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
     total_steps = len(train_data_loader) * EPOCHS
@@ -81,7 +75,7 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
         train_acc, train_loss = classification_lib.train_or_eval(
             classification_lib.TRAIN,
             model,
-            train_data_loaders,
+            train_data_loader,
             DEVICE,
             optimizer=optimizer,
             scheduler=scheduler,
@@ -111,7 +105,6 @@ def main():
 
     tokenizer = BertTokenizer.from_pretrained(classification_lib.PRE_TRAINED_MODEL_NAME)
     if(args.task == "all"):
-        print("all")
         tasks = []
         all_labels = []
         dirs = []
@@ -122,8 +115,9 @@ def main():
             all_labels.append(labels)
             task_dir = classification_lib.make_checkpoint_path(args.data_dir, task)
             dirs.append(task_dir)
-        model = classification_lib.Classifier(len(all_labels[0])).to(DEVICE)
-        model.loss_fn.to(DEVICE)
+        model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
+        for i in range(len(tasks)):
+            model.loss[i].to(DEVICE)
         do_train(tokenizer, model, dirs, multi_train=True)
     else:
         task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)

@@ -50,6 +50,11 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
            train_data_loader,
            val_data_loader,
        ) = classification_lib.build_data_loader_multitask(task_dir, tokenizer)
+    else:
+       (
+           train_data_loader,
+           val_data_loader,
+       ) = classification_lib.build_data_loaders(task_dir, tokenizer)
     # Optimizer and scheduler (boilerplatey)
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
     total_steps = len(train_data_loader) * EPOCHS
@@ -84,7 +89,7 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
 
         # Run train_or_eval on validation set in EVAL mode
         val_acc, val_loss = classification_lib.train_or_eval(
-            classification_lib.EVAL, model, val_data_loaders, DEVICE, multi_train=multi_train
+            classification_lib.EVAL, model, val_data_loader, DEVICE, multi_train=multi_train
         )
 
         # Recording metadata
@@ -92,7 +97,10 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
 
         # Save the model parameters if this is the best model seen so far
         if val_acc > best_accuracy:
-            torch.save(model.state_dict(), f"{task_dir}/ckpt/best_bert_model.bin")
+            if(multi_train):
+                torch.save(model.state_dict(), f"all/ckpt/best_bert_model.bin")
+            else:
+                torch.save(model.state_dict(), f"{task_dir}/ckpt/best_bert_model.bin")
             best_accuracy = val_acc
             best_accuracy_epoch = epoch
 
@@ -117,9 +125,11 @@ def main():
             dirs.append(task_dir)
         model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
         for i in range(len(tasks)):
+            model.out[i].to(DEVICE)
             model.loss[i].to(DEVICE)
         do_train(tokenizer, model, dirs, multi_train=True)
     else:
+        labels = classification_lib.get_label_list(args.data_dir, args.task)
         task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
         model = classification_lib.Classifier(len(labels)).to(DEVICE)
         model.loss_fn.to(DEVICE)

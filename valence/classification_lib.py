@@ -11,7 +11,7 @@ from transformers import BertTokenizer, BertModel
 TRAIN, EVAL, PREDICT, DEV, TEST = "train eval predict dev test".split()
 MODES = [TRAIN, EVAL, PREDICT]
 
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
 
 # Wrapper around the tokenizer specifying the details of the BERT input
@@ -265,17 +265,38 @@ def train_or_eval(
 
   with context:
     if(multi_train):
-        print(multi_train)
         for d in tqdm.tqdm(data_loader):
-            input_ids, attention_mask, targets, target_indices = [
+            input_ids, attention_mask = [
                d[k].to(device) # Move all this stuff to gpu
-               for k in "input_ids attention_mask targets target_indices".split()
+               for k in "input_ids attention_mask".split()
             ]
-            print(input_ids)
-            print(attention_mask)
-            print(targets)
-            print(target_indices)
-            break
+            for i in range(len(d["targets"])):
+                task_id = i
+                task_id = torch.tensor(task_id, dtype=torch.int32, device="cuda:0")
+                targets = d["targets"][i].to(device)
+                target_indices = d["target_indices"][i].to(device)
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask, task_id=task_id)
+                _, preds = torch.max(outputs, dim=1)
+
+                if return_preds:
+                # If this is being run as part of prediction, we need to return the
+                # predicted indices. If we are just evaluating, we just need loss and/or
+                # accuracy
+                    results.append((d["identifier"], preds.cpu().numpy().tolist()))
+
+                # We need loss for both train and eval
+                loss = model.loss[i](outputs, targets)
+                losses.append(loss.item())
+                if is_train:
+                # Backpropagation steps
+                    loss.backward()
+                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    optimizer.step()
+                    scheduler.step()
+                    optimizer.zero_grad()
+
+                # Counting correct predictions in order to calculate accuracy later
+                correct_predictions += torch.sum(preds == target_indices)
         #second option: build a custom dataloader
     else:
         for d in tqdm.tqdm(data_loader): # Load batchwise

@@ -11,7 +11,7 @@ from transformers import BertTokenizer, BertModel
 TRAIN, EVAL, PREDICT, DEV, TEST = "train eval predict dev test".split()
 MODES = [TRAIN, EVAL, PREDICT]
 
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
 
 # Wrapper around the tokenizer specifying the details of the BERT input
@@ -36,7 +36,7 @@ def get_text_and_labels(task_dir, subset, get_labels=False):
   texts = []
   identifiers = []
   labels = []
-  with open(f"{task_dir}/{subset}.jsonl", "r") as f:
+  with open(f"disapere_data/{task_dir}/{subset}.jsonl", "r") as f:
     for line in f:
       example = json.loads(line)
       texts.append(example["text"])
@@ -182,6 +182,7 @@ def build_data_loader_multitask(task_dirs, tokenizer):
             tokenizer,
         ),
     )
+
 class MultiTaskClassifier(nn.Module):
     def __init__(self, num_classes_array):
         super(MultiTaskClassifier, self).__init__()
@@ -261,10 +262,11 @@ def train_or_eval(
   results = []
   losses = []
   correct_predictions = 0
-  n_examples = len(data_loader.dataset)
+  n_examples = len(data_loader.dataset) * 3
 
   with context:
     if(multi_train):
+        print("MULTI_TRAIN")
         for d in tqdm.tqdm(data_loader):
             input_ids, attention_mask = [
                d[k].to(device) # Move all this stuff to gpu
@@ -272,7 +274,7 @@ def train_or_eval(
             ]
             for i in range(len(d["targets"])):
                 task_id = i
-                task_id = torch.tensor(task_id, dtype=torch.int32, device="cuda:0")
+                task_id = torch.tensor(task_id, dtype=torch.int32, device="cuda")
                 targets = d["targets"][i].to(device)
                 target_indices = d["target_indices"][i].to(device)
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask, task_id=task_id)

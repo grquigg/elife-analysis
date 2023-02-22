@@ -99,13 +99,14 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
         if val_acc > best_accuracy:
             if(multi_train):
                 torch.save(model.state_dict(), f"all/ckpt/best_bert_model.bin")
+                with open(f"all/ckpt/history.pkl", "wb") as f:
+                    pickle.dump(history,f)
             else:
                 torch.save(model.state_dict(), f"{task_dir}/ckpt/best_bert_model.bin")
+                with open(f"{task_dir}/ckpt/history.pkl", "wb") as f:
+                    pickle.dump(history, f)
             best_accuracy = val_acc
             best_accuracy_epoch = epoch
-
-        with open(f"{task_dir}/ckpt/history.pkl", "wb") as f:
-            pickle.dump(history, f)
 
 
 def main():

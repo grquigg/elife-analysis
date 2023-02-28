@@ -51,6 +51,7 @@ def get_text_and_labels(task_dir, subset, get_labels=False):
 class MultiTaskClassificationDataset(Dataset):
 
     def __init__(self, task_dirs, subset, tokenizer, max_len=512):
+        print(task_dirs)
         self.identifier_list = []
         self.text_list = []
         self.targets_indices_list = []
@@ -261,8 +262,8 @@ def train_or_eval(
 
   results = []
   losses = []
-  correct_predictions = 0
-  n_examples = len(data_loader.dataset) * 3
+  correct_predictions = [0,0]
+  n_examples = len(data_loader.dataset) * 2
 
   with context:
     if(multi_train):
@@ -272,7 +273,7 @@ def train_or_eval(
                d[k].to(device) # Move all this stuff to gpu
                for k in "input_ids attention_mask".split()
             ]
-            for i in range(len(d["targets"])):
+            for i in range(len(d["targets"])): #loop through each task
                 task_id = i
                 task_id = torch.tensor(task_id, dtype=torch.int32, device="cuda")
                 targets = d["targets"][i].to(device)
@@ -298,8 +299,11 @@ def train_or_eval(
                     optimizer.zero_grad()
 
                 # Counting correct predictions in order to calculate accuracy later
-                correct_predictions += torch.sum(preds == target_indices)
-        #second option: build a custom dataloader
+                correct_predictions[i] += torch.sum(preds == target_indices)
+        #print accuracy for each task
+        for i in range(len(correct_predictions)):
+            acc = correct_predictions[i] / len(data_loader.dataset)
+            print("Accuracy for task {}: {}".format(i+1, acc))
     else:
         for d in tqdm.tqdm(data_loader): # Load batchwise
           input_ids, attention_mask, targets, target_indices = [
@@ -335,7 +339,9 @@ def train_or_eval(
   if return_preds:
     return results
   else:
+    if(type(correct_predictions) == list):
+        correct_predictions = torch.Tensor(correct_predictions) 
     # Return accuracy and mean loss
-    return correct_predictions.double().item() / n_examples, np.mean(losses)
+    return torch.sum(correct_predictions).double().item() / n_examples, np.mean(losses)
 
 

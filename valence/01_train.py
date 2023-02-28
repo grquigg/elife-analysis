@@ -27,6 +27,7 @@ parser.add_argument(
     "-t",
     "--task",
     type=str,
+    nargs="*",
     help="train eval or predict",
 )
 
@@ -111,24 +112,20 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
 
 def main():
     args = parser.parse_args()
-
+    print(args.task)
     tokenizer = BertTokenizer.from_pretrained(classification_lib.PRE_TRAINED_MODEL_NAME)
-    if(args.task == "all"):
-        tasks = []
+    if(len(args.task) > 1):
         all_labels = []
         dirs = []
-        for filename in glob.glob(f"{args.data_dir}/*/"):
-            task = filename.split("/")[1]
+        for task in args.task:
             labels = classification_lib.get_label_list(args.data_dir, task)
-            tasks.append(task)
             all_labels.append(labels)
             task_dir = classification_lib.make_checkpoint_path(args.data_dir, task)
-            dirs.append(task_dir)
         model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
-        for i in range(len(tasks)):
+        for i in range(len(args.task)):
             model.out[i].to(DEVICE)
             model.loss[i].to(DEVICE)
-        do_train(tokenizer, model, dirs, multi_train=True)
+        do_train(tokenizer, model, args.task, multi_train=True)
     else:
         labels = classification_lib.get_label_list(args.data_dir, args.task)
         task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)

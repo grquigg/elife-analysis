@@ -1,0 +1,57 @@
+---
+tasks:
+- epi
+- asp
+- pol
+datasets:
+  labeled:
+    disapere:
+    - epi
+    - asp
+    - pol
+    elife:
+    - epi
+    - asp
+    - pol
+    ampere:
+    - epi
+    revadv:
+    - asp
+    - pol
+  unlabeled:
+  - iclr
+  - elifeall
+labels:
+  epi:
+  - epi
+  - nep
+  pol:
+  - pos
+  - neg
+  - non
+  asp:
+  - sbs
+  - clr
+  - snd
+  - org
+  - mot
+  - mng
+  - rep
+  - non
+names:
+  epi: Epistemic
+  nep: Non-epistemic
+  pol: Polarity
+  pos: Positive
+  neg: Negative
+  neu: Neutral
+  asp: Aspect
+  sbs: Substantiality
+  clr: Clarity
+  snd: Soundness
+  org: Originality
+  mot: Motiviation/Impact
+  mng: MeaningfulComparison
+  rep: Replicability
+  non: None
+

@@ -1,0 +1,10 @@
+config_name: D1
+task: asp
+model_name: bert-base-uncased
+train:
+   - disapere
+dev:
+   - disapere
+test:
+   - disapere
+predict: []

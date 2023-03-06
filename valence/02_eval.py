@@ -36,14 +36,19 @@ parser.add_argument(
 parser.add_argument(
     "-t",
     "--task",
+    nargs="*",
     type=str,
     help="train eval or predict",
 )
 
 
 def do_multitask_eval(tokenizer, model, task_dir, eval_subset):
+    model_dir = "_".join(task_dir)
     data_loader = classification_lib.create_multitask_data_loader(task_dir, eval_subset, tokenizer)
-    model.load_state_dict(torch.load(f"all/ckpt/best_bert_model.bin"))
+    model.load_state_dict(torch.load(f"disapere_data/{model_dir}/ckpt/best_bert_model.bin"))
+    print(isinstance(model, collections.OrderedDict))
+    print(model.state_dict().keys())
+    print(model.out[0].weight)
     acc, loss = classification_lib.train_or_eval(
         classification_lib.EVAL, model, data_loader, DEVICE, multi_train=True
     )
@@ -71,31 +76,29 @@ def main():
     args = parser.parse_args()
 
     tokenizer = BertTokenizer.from_pretrained(classification_lib.PRE_TRAINED_MODEL_NAME)
-    if(args.task == "all"):
+    if(len(args.task) > 1):
+        print("Multi task")
+        print(args.task)
         tasks = []
         all_labels = []
         dirs = []
-        for filename in glob.glob(f"{args.data_dir}/*/"):
-            task = filename.split("/")[1]
+        for task in args.task:
             labels = classification_lib.get_label_list(args.data_dir, task)
             tasks.append(task)
             all_labels.append(labels)
             task_dir = classification_lib.make_checkpoint_path(args.data_dir, task)
             dirs.append(task_dir)
         model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
-        model.loss[0].to(DEVICE)
-        model.loss[1].to(DEVICE)
-        model.loss[2].to(DEVICE)
-        model.out[0].to(DEVICE)
-        model.out[1].to(DEVICE)
-        model.out[2].to(DEVICE)
+        for i in range(len(args.task)):
+            model.loss[i].to(DEVICE)
+            model.out[i].to(DEVICE)
     else:
         labels = classification_lib.get_label_list(args.data_dir, args.task)
         model = classification_lib.Classifier(len(labels)).to(DEVICE)
         
         task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
         model.loss_fn.to(DEVICE)
-    if(args.task == "all"):
+    if(len(args.task) > 1):
         do_multitask_eval(tokenizer, model, tasks, args.eval_subset)
     else:
         do_eval(tokenizer, model, task_dir, args.eval_subset)

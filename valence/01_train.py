@@ -34,7 +34,7 @@ parser.add_argument(
 # Hyperparameters
 DEVICE = "cuda"
 EPOCHS = 100
-PATIENCE = 5
+PATIENCE = 2
 LEARNING_RATE = 2e-5
 
 HistoryItem = collections.namedtuple(
@@ -99,8 +99,10 @@ def do_train(tokenizer, model, task_dir, multi_train=False):
         # Save the model parameters if this is the best model seen so far
         if val_acc > best_accuracy:
             if(multi_train):
-                torch.save(model.state_dict(), f"all/ckpt/best_bert_model.bin")
-                with open(f"all/ckpt/history.pkl", "wb") as f:
+                task_name = "_".join(task_dir)
+                print(task_name)
+                torch.save(model.state_dict(), f"disapere_data/{task_name}/ckpt/best_bert_model.bin")
+                with open(f"disapere_data/{task_name}/ckpt/history.pkl", "wb") as f:
                     pickle.dump(history,f)
             else:
                 torch.save(model.state_dict(), f"{task_dir}/ckpt/best_bert_model.bin")

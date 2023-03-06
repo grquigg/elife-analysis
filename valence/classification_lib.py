@@ -188,19 +188,28 @@ class MultiTaskClassifier(nn.Module):
     def __init__(self, num_classes_array):
         super(MultiTaskClassifier, self).__init__()
         self.bert = BertModel.from_pretrained(PRE_TRAINED_MODEL_NAME)
-        self.drop = nn.Dropout(p=0.3)
+        #hard code dropout layers
+        self.drops = []
+        self.drops.append(nn.Dropout(p=0.3))
+        self.drops.append(nn.Dropout(p=0.3))
         self.out = []
         self.loss = []
         for i in range(len(num_classes_array)):
             self.out.append(nn.Linear(self.bert.config.hidden_size, len(num_classes_array[i])))
+            #print("out" + str(i+1))
+            self.state_dict["out" + str(i+1)] = self.out[i]
+            self.state_dict["drop" + str(i+1)] = self.drops[i]
             if len(num_classes_array[i]) == 2:
                 self.loss.append(nn.BCEWithLogitsLoss())  # Not sure if this is reasonable
             else:
                 self.loss.append(nn.CrossEntropyLoss())
+	#send items to state_dict
+        
+        print(len(self.state_dict().keys()))
 
     def forward(self, input_ids, attention_mask, task_id):  # This function is required
         bert_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        output = self.drop(bert_output["pooler_output"])
+        output = self.drops[task_id](bert_output["pooler_output"])
         return self.out[task_id](output)
 
 class Classifier(nn.Module):
@@ -274,6 +283,7 @@ def train_or_eval(
                for k in "input_ids attention_mask".split()
             ]
             for i in range(len(d["targets"])): #loop through each task
+                print(d["identifier"][i])
                 task_id = i
                 task_id = torch.tensor(task_id, dtype=torch.int32, device="cuda")
                 targets = d["targets"][i].to(device)
@@ -297,7 +307,7 @@ def train_or_eval(
                     optimizer.step()
                     scheduler.step()
                     optimizer.zero_grad()
-
+                
                 # Counting correct predictions in order to calculate accuracy later
                 correct_predictions[i] += torch.sum(preds == target_indices)
         #print accuracy for each task

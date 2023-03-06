@@ -125,7 +125,6 @@ def main():
             task_dir = classification_lib.make_checkpoint_path(args.data_dir, task)
         model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
         for i in range(len(args.task)):
-            model.out[i].to(DEVICE)
             model.loss[i].to(DEVICE)
         do_train(tokenizer, model, args.task, multi_train=True)
     else:

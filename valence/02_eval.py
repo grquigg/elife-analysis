@@ -47,8 +47,6 @@ def do_multitask_eval(tokenizer, model, task_dir, eval_subset):
     data_loader = classification_lib.create_multitask_data_loader(task_dir, eval_subset, tokenizer)
     model.load_state_dict(torch.load(f"disapere_data/{model_dir}/ckpt/best_bert_model.bin"))
     print(isinstance(model, collections.OrderedDict))
-    print(model.state_dict().keys())
-    print(model.out[0].weight)
     acc, loss = classification_lib.train_or_eval(
         classification_lib.EVAL, model, data_loader, DEVICE, multi_train=True
     )
@@ -91,7 +89,6 @@ def main():
         model = classification_lib.MultiTaskClassifier(all_labels).to(DEVICE)
         for i in range(len(args.task)):
             model.loss[i].to(DEVICE)
-            model.out[i].to(DEVICE)
     else:
         labels = classification_lib.get_label_list(args.data_dir, args.task)
         model = classification_lib.Classifier(len(labels)).to(DEVICE)

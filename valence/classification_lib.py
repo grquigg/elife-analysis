@@ -192,11 +192,12 @@ class MultiTaskClassifier(nn.Module):
         self.loss = []
         for i in range(len(num_classes_array)):
             self["out" + str(i+1)] = nn.Linear(self.bert.config.hidden_size, len(num_classes_array[i]))
-            self["drop" + str(i+1)] = nn.Dropout(p=0.3)
             if len(num_classes_array[i]) == 2:
                 self.loss.append(nn.BCEWithLogitsLoss())  # Not sure if this is reasonable
             else:
                 self.loss.append(nn.CrossEntropyLoss())
+        self["drop1"] = nn.Dropout(p=0.2)
+        self["drop2"] = nn.Dropout(p=0.2)
 
     def forward(self, input_ids, attention_mask, task_id):  # This function is required
         task_id = task_id.item()
@@ -269,7 +270,8 @@ def train_or_eval(
     context = torch.no_grad() # Don't backpropagate
 
   results = []
-  losses = []
+  y = []
+  losses = [[],[]]
   correct_predictions = [0,0]
   n_examples = len(data_loader.dataset) * 2
 
@@ -293,11 +295,11 @@ def train_or_eval(
                 # If this is being run as part of prediction, we need to return the
                 # predicted indices. If we are just evaluating, we just need loss and/or
                 # accuracy
-                    results.append((d["identifier"], preds.cpu().numpy().tolist()))
-
+                    results.append((d["identifier"][i], preds.cpu().numpy().tolist()))
+                    y.append((d["identifier"][i], target_indices.cpu().numpy().tolist()))
                 # We need loss for both train and eval
                 loss = model.loss[i](outputs, targets)
-                losses.append(loss.item())
+                losses[i].append(loss.item())
                 if is_train:
                 # Backpropagation steps
                     loss.backward()
@@ -312,6 +314,7 @@ def train_or_eval(
         for i in range(len(correct_predictions)):
             acc = correct_predictions[i] / len(data_loader.dataset)
             print("Accuracy for task {}: {}".format(i+1, acc))
+            print("Loss for task {}: {}".format(i+1, np.sum(losses[i])))
     else:
         for d in tqdm.tqdm(data_loader): # Load batchwise
           input_ids, attention_mask, targets, target_indices = [
@@ -345,7 +348,7 @@ def train_or_eval(
             optimizer.zero_grad()
 
   if return_preds:
-    return results
+    return results, y
   else:
     if(type(correct_predictions) == list):
         correct_predictions = torch.Tensor(correct_predictions) 

@@ -8,7 +8,7 @@ import glob
 from contextlib import nullcontext
 from torch.optim import AdamW
 from transformers import BertTokenizer
-
+from sklearn.metrics import confusion_matrix
 import classification_lib
 
 DEVICE = "cuda"
@@ -51,11 +51,27 @@ def do_multitask_eval(tokenizer, model, task_dir, eval_subset, model_path):
     data_loader = classification_lib.create_multitask_data_loader(task_dir, eval_subset, tokenizer)
     model.load_state_dict(torch.load(model_path))
     print(isinstance(model, collections.OrderedDict))
-    acc, loss = classification_lib.train_or_eval(
-        classification_lib.EVAL, model, data_loader, DEVICE, multi_train=True
+    predictions, labels = classification_lib.train_or_eval(
+        classification_lib.EVAL, model, data_loader, DEVICE, multi_train=True, return_preds=True
     )
 
-    print(f"Accuracy: {acc} Loss: {loss}")
+    print(type(predictions))
+    task1_pred = []
+    task1_actual = []
+    task2_pred = []
+    task2_actual = []
+    for i in range(0, len(predictions), 2):
+        for j in range(len(predictions[i][1])):
+            task1_pred.append(predictions[i][1][j])
+            task1_actual.append(labels[i][1][j])
+        for n in range(len(predictions[i+1][1])):
+            task2_pred.append(predictions[i+1][1][n])
+            task2_actual.append(labels[i+1][1][n])
+    conf1 = confusion_matrix(task1_actual, task1_pred)
+    print(conf1)
+    conf2 = confusion_matrix(task2_actual, task2_pred)
+    print(conf2)
+
 
 def do_eval(tokenizer, model, task_dir, eval_subset):
     """Evaluate (on dev set?) without backpropagating."""

@@ -11,7 +11,7 @@ from transformers import BertTokenizer, BertModel
 TRAIN, EVAL, PREDICT, DEV, TEST = "train eval predict dev test".split()
 MODES = [TRAIN, EVAL, PREDICT]
 
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
 
 # Wrapper around the tokenizer specifying the details of the BERT input
@@ -36,7 +36,7 @@ def get_text_and_labels(task_dir, subset, get_labels=False):
   texts = []
   identifiers = []
   labels = []
-  with open(f"disapere_data/{task_dir}/{subset}.jsonl", "r") as f:
+  with open(f"{task_dir}/{subset}.jsonl", "r") as f:
     for line in f:
       example = json.loads(line)
       texts.append(example["text"])
@@ -272,12 +272,13 @@ def train_or_eval(
   results = []
   y = []
   losses = [[],[]]
-  correct_predictions = [0,0]
+  correct_predictions = 0
   n_examples = len(data_loader.dataset) * 2
 
   with context:
     if(multi_train):
         print("MULTI_TRAIN")
+        correct_predictions = [0,0]
         for d in tqdm.tqdm(data_loader):
             input_ids, attention_mask = [
                d[k].to(device) # Move all this stuff to gpu
@@ -337,6 +338,8 @@ def train_or_eval(
           losses.append(loss.item())
 
           # Counting correct predictions in order to calculate accuracy later
+          print(preds)
+          print(target_indices)
           correct_predictions += torch.sum(preds == target_indices)
 
           if is_train:

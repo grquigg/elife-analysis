@@ -128,8 +128,8 @@ def main():
             model.loss[i].to(DEVICE)
         do_train(tokenizer, model, args.task, multi_train=True)
     else:
-        labels = classification_lib.get_label_list(args.data_dir, args.task)
-        task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
+        labels = classification_lib.get_label_list(args.data_dir, args.task[0])
+        task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task[0])
         model = classification_lib.Classifier(len(labels)).to(DEVICE)
         model.loss_fn.to(DEVICE)
         do_train(tokenizer, model, task_dir)

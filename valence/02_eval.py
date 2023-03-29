@@ -66,7 +66,7 @@ def do_eval(tokenizer, model, task_dir, eval_subset):
     )
 
     # Get best model
-    model.load_state_dict(torch.load(f"{task_dir}/ckpt/best_bert_model.bin"))
+    model.load_state_dict(torch.load(f"disapere_data/{task_dir}/ckpt/best_bert_model.bin"))
     acc, loss = classification_lib.train_or_eval(
         classification_lib.EVAL, model, data_loader, DEVICE
     )
@@ -94,15 +94,15 @@ def main():
         for i in range(len(args.task)):
             model.loss[i].to(DEVICE)
     else:
-        labels = classification_lib.get_label_list(args.data_dir, args.task)
+        labels = classification_lib.get_label_list(args.data_dir, args.task[0])
         model = classification_lib.Classifier(len(labels)).to(DEVICE)
         
-        task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task)
+        task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task[0])
         model.loss_fn.to(DEVICE)
     if(len(args.task) > 1):
         do_multitask_eval(tokenizer, model, tasks, args.eval_subset, args.ckpt)
     else:
-        do_eval(tokenizer, model, task_dir, args.eval_subset)
+        do_eval(tokenizer, model, args.task[0], args.eval_subset)
 
 
 if __name__ == "__main__":

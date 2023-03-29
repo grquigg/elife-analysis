@@ -34,7 +34,7 @@ parser.add_argument(
 # Hyperparameters
 DEVICE = "cuda"
 EPOCHS = 100
-PATIENCE = 2
+PATIENCE = 5
 LEARNING_RATE = 2e-5
 
 HistoryItem = collections.namedtuple(
@@ -131,7 +131,6 @@ def main():
         labels = classification_lib.get_label_list(args.data_dir, args.task[0])
         task_dir = classification_lib.make_checkpoint_path(args.data_dir, args.task[0])
         model = classification_lib.Classifier(len(labels)).to(DEVICE)
-        model.loss_fn.to(DEVICE)
         do_train(tokenizer, model, task_dir)
 
 

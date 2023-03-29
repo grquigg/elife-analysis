@@ -56,7 +56,7 @@ def main():
 
     sentences = collections.defaultdict(list)
     for subset in "train dev test".split():
-        for filename in glob.glob(f"{args.data_dir}/final_dataset/{subset}/*.json"):
+        for filename in glob.glob(f"{args.data_dir}/{subset}/*.json"):
             with open(filename, "r") as f:
                 obj = json.load(f)
             review_id = obj["metadata"]["review_id"]

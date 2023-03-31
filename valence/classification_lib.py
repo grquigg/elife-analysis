@@ -7,21 +7,23 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import tqdm
 from transformers import BertTokenizer, BertModel
+from sklearn.utils import class_weight
 
 TRAIN, EVAL, PREDICT, DEV, TEST = "train eval predict dev test".split()
 MODES = [TRAIN, EVAL, PREDICT]
 
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
-
+DEVICE = "cuda"
 # Wrapper around the tokenizer specifying the details of the BERT input
 # encoding.
+#GQ: We can change the max length to 256 since the maximum length a sentence has in our dataset is 224
 tokenizer_fn = lambda tok, text: tok.encode_plus(
     text,
     add_special_tokens=True,
     return_token_type_ids=False,
     padding="max_length",
-    max_length=512,
+    max_length=256,
     truncation=True,
     return_attention_mask=True,
     return_tensors="pt",
@@ -36,7 +38,7 @@ def get_text_and_labels(task_dir, subset, get_labels=False):
   texts = []
   identifiers = []
   labels = []
-  with open(f"{task_dir}/{subset}.jsonl", "r") as f:
+  with open(f"disapere_data/{task_dir}/{subset}.jsonl", "r") as f:
     for line in f:
       example = json.loads(line)
       texts.append(example["text"])
@@ -223,6 +225,11 @@ class Classifier(nn.Module):
         else:
             self.loss_fn = nn.CrossEntropyLoss()
 
+    def set_class_weights(self, y):
+        #print(y)
+        class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(y), y=y)
+        self.loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(class_weights,dtype=torch.float))
+
     def forward(self, input_ids, attention_mask):  # This function is required
         bert_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
         output = self.drop(bert_output["pooler_output"])
@@ -258,6 +265,8 @@ def train_or_eval(
   """
   assert mode in [TRAIN, EVAL]
   is_train = mode == TRAIN
+  model.set_class_weights(data_loader.dataset.target_indices)
+  model.loss_fn.to(DEVICE)
   if is_train:
     model = model.train() # Put the model in train mode
     context = nullcontext()
@@ -317,6 +326,8 @@ def train_or_eval(
             print("Accuracy for task {}: {}".format(i+1, acc))
             print("Loss for task {}: {}".format(i+1, np.sum(losses[i])))
     else:
+        correct_predictions = 0
+        losses = []
         for d in tqdm.tqdm(data_loader): # Load batchwise
           input_ids, attention_mask, targets, target_indices = [
               d[k].to(device) # Move all this stuff to gpu
@@ -338,8 +349,6 @@ def train_or_eval(
           losses.append(loss.item())
 
           # Counting correct predictions in order to calculate accuracy later
-          print(preds)
-          print(target_indices)
           correct_predictions += torch.sum(preds == target_indices)
 
           if is_train:
@@ -349,12 +358,14 @@ def train_or_eval(
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
-
-  if return_preds:
-    return results, y
-  else:
-    if(type(correct_predictions) == list):
-        correct_predictions = torch.Tensor(correct_predictions) 
+        acc= correct_predictions / len(data_loader.dataset)
+        print("Accuracy: {}".format(acc))
+        print("Loss: {}".format(np.sum(losses)))
+    #if return_preds:
+        #return results, y
+    #else:
+        #if(type(correct_predictions) == list):
+            #correct_predictions = torch.Tensor(correct_predictions) 
     # Return accuracy and mean loss
     return torch.sum(correct_predictions).double().item() / n_examples, np.mean(losses)
 

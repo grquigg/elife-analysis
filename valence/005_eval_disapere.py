@@ -142,7 +142,7 @@ def main():
     label_map2 = list(sorted(set(t[3] for t in sum(sentences.values(), []))))
     label_map3 = list(sorted(set(t[4] for t in sum(sentences.values(), []))))
     with open(f"{task_output_dir}/metadata.json", "w") as f:
-        json.dump({"labels": (label_map1, label_map2, label_map3)}, f)
+        json.dump({"labels": {"ms_aspect": label_map1, "polarity": label_map2, "review_action": label_map3}}, f)
     for subset, subset_sentences in sentences.items():
         print(subset)
         with open(f"{task_output_dir}/{subset}.jsonl", "w") as f:

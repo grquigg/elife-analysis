@@ -1,5 +1,5 @@
 
-from contextlib import nullcontext
+import os
 import torch
 import json
 import tqdm
@@ -9,7 +9,6 @@ import numpy as np
 from transformers import BertTokenizer, AutoTokenizer, BertModel
 from torch.utils.data import DataLoader, Dataset
 from models import CRFOutputLayer
-
 #most of this code is going to be the same from classification_lib as well, but some additions to potentially keep everything organized
 TRAIN, EVAL, PREDICT, DEV, TEST = "train eval predict dev test".split()
 MODES = [TRAIN, EVAL, PREDICT]
@@ -35,23 +34,35 @@ tokenizer_fn = lambda tok, text: tok.encode_plus(
     return_tensors="pt",
 )
 
-def extract_reviews(in_dir, tasks, subset):
+def extract_reviews(in_dir, task, subset, identifier=True):
     reviews = {}
-    with open(f"{in_dir}/{subset}.jsonl", "r") as f:
-        for line in f:
+    with open(f"{in_dir}/{subset}_{task}.jsonl", "r") as f:
+        for i, line in enumerate(f):
             example = json.loads(line)
-            review_id, sentence_index = example["identifier"].split("|||")
+            if identifier:
+                review_id, sentence_index = example["identifier"].split("|||")
+            #add a task tag to the review_id so that data isn't overwritten by the model
+            review_id = (task, i)
             if review_id not in reviews:
                 reviews[review_id] = {
                     "sentences": [],
                     "labels": []
                 }
-            reviews[review_id]["sentences"].append(example["text"])
-            reviews[review_id]["labels"].append([example[label] for label in tasks])
+            if "text" not in example:
+                reviews[review_id]["sentences"].append(example["sentences"])
+            else:
+                reviews[review_id]["sentences"].append(example["text"])
+            if type(task) == list:
+                reviews[review_id]["labels"].append([example[label] for label in task])
+            elif type(task) == str:
+                reviews[review_id]["labels"].append(example[task])
     return reviews
 
+#get_text_and_labels extracts the labels and the sentences for each task independently
 def get_text_and_labels(in_dir, tasks, subset, get_labels=True):
-    reviews = extract_reviews(in_dir, tasks, subset)
+    reviews = {}
+    for task in tasks:
+        reviews.update(extract_reviews(in_dir, task, subset, identifier=False))
     identifiers = []
     texts = []
     labels = []
@@ -94,7 +105,10 @@ def get_label_list(data_dir, tasks):
     #task can be a list of tasks
     print(data_dir)
     print(tasks)
-    
+    if not os.path.exists(f"{data_dir}/metadata.json"): #unless specified otherwise
+        #infer labels for each task from the preprocess_data file
+        from preprocess_data import LABELS
+        return [LABELS[task] for task in tasks]
     with open(f"{data_dir}/metadata.json", "r") as f:
         data = json.load(f)
         return [data["labels"][task] for task in tasks]
@@ -133,6 +147,7 @@ class MultiTaskReviewDataset(Dataset): #This dataset is different from the one i
                         sentences[0] = sentences[0][0:val]
                         sentences[1] = sentences[1][0:val]
                         break
+                    print(texts[i][idx])
                     encoded = tokenizer_fn(self.tokenizer, texts[i][idx])
                     sentences[0][val,:] = encoded["attention_mask"]
                     sentences[1][val,:] = encoded["input_ids"]

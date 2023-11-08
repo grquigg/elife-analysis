@@ -29,7 +29,7 @@ def get_text_and_labels(data_dir, task, subset, get_labels=False):
 
   texts = []
   labels = []
-  with open(f"{data_dir}/{subset}_{task}", "r") as f:
+  with open(f"{data_dir}/{subset}_{task}.jsonl", "r") as f:
     for line in f:
       example = json.loads(line)
       texts.append(example["sentences"])

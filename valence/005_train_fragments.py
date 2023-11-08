@@ -33,7 +33,7 @@ parser.add_argument(
 )
 
 # Hyperparameters
-DEVICE = "cuda"
+DEVICE = "cpu"
 EPOCHS = 100
 PATIENCE = 5
 LEARNING_RATE = 2e-5
@@ -45,13 +45,14 @@ HistoryItem = collections.namedtuple(
 Example = collections.namedtuple("Example", "identifier text target".split())
 
 
-def do_train(tokenizer, model, task_dir):
+def do_train(tokenizer, model, tasks, data_dir):
     """Train on train set, validating on validation set."""
-    if(multi_train):
-       (
-           train_data_loader,
-           val_data_loader,
-       ) = classification_lib.build_data_loader_multitask(task_dir, tokenizer)
+    #TO-DO: add dataloader such that it reduces the amount of repeated code necessary 
+    #we give the list of tasks to the data_loader rather than a specific path to a file
+    (
+       train_data_loader,
+       val_data_loader,
+    ) = hsln.build_data_loader_multitask(data_dir, tasks, tokenizer)
     # Optimizer and scheduler (boilerplatey)
     optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
     total_steps = len(train_data_loader) * EPOCHS
@@ -117,12 +118,13 @@ def main():
     print(len(all_text))
     print(len(all_labels))
     tokenizer = AutoTokenizer.from_pretrained(hsln.PRE_TRAINED_MODEL_NAME)
-    labels = hsln.get_label_list(args.data_dir, tasks, local=True)
+    labels = hsln.get_label_list(args.data_dir, tasks)
     task_dir = classification_lib.make_checkpoint_path(args.data_dir, "_".join(tasks)+"mod")
     model = hsln.BertHSLN(labels, tasks, 0.6).to(DEVICE)
     # if(args.model_path):
     #     model.load_state_dict(torch.load(args.model_path))
-    do_train(tokenizer, model, args.data_dir)
+    print(f"Task_dir: {task_dir}\nData_dir: {args.data_dir}")
+    do_train(tokenizer, model, tasks, args.data_dir)
 
 
 if __name__ == "__main__":

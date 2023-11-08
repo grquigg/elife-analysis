@@ -209,6 +209,7 @@ def process_revadv_labels(reviews, labels, data_dir, context_width=1):
                         if key == "text":
                             continue
                         review_candidates[can][key][number] = labels[id][key][number][index]
+        print(f"Review {id} processed")
         for i in range(len(review_candidates)):
             dataset.append(review_candidates[i])
     with open(f"{data_dir}/raw/revadv/all/revadv.jsonl", "w") as f:
@@ -239,7 +240,7 @@ def process_revadv(data_dir):
 def preprocess_revadv(data_dir):
     reviews = {}
     with open(f"{data_dir}/raw/revadv/asp_train.jsonl", "r") as f:
-        for line in f:
+        for i, line in enumerate(f):
             obj = json.loads(line)
             items = obj["identifier"].split("|")
             _, _, review_id, sentence_number = items
@@ -249,7 +250,7 @@ def preprocess_revadv(data_dir):
             reviews[review_id]["text"][sentence_number].append(obj["text"])
             reviews[review_id]["asp"][sentence_number].append(obj["label"])
     with open(f"{data_dir}/raw/revadv/pol_train.jsonl", "r") as f:
-        for line in f:
+        for i, line in enumerate(f):
             obj = json.loads(line)
             items = obj["identifier"].split("|")
             _, _, review_id, sentence_number = items
@@ -353,7 +354,7 @@ def cleanSparseLabels(data, task, context_width = 1):
         while(j < len(data[i][task])):
             if(data[i][task][j] != "non"): #if the current sentence actually has a label associated with it
                 # print(data[i])
-                entry = {"sentences": [], task: [], "review_id": data[i]["review_id"] + "||" + str(sentence_index)}
+                entry = {"sentences": [], task: []}
                 min_context = max(j-context_width, 0) #prevent array indexing from going out of bounds
                 entry["sentences"] += data[i]["sentences"][min_context:j+1]
                 entry[task] += data[i][task][min_context:j+1]
@@ -405,13 +406,13 @@ def findSplits(data, task="epi", num_samples=100, num_classes=3, save=False):
         for entry in data[i]:
             if type(entry[0]["counts"]) != list:
                 entry[0]["counts"] = entry[0]["counts"].tolist()
-        with open(f"{entries[i]}_{task}", "w") as f:
+        with open(f"{entries[i]}_{task}.jsonl", "w") as f:
             f.write("\n".join(json.dumps(entry[0]) for entry in data[i]))
     return data
 
 def main():
 
-    DATA_DIR = "data"
+    DATA_DIR = "../data"
 
     print("Preprocessing DISAPERE")
     #focus on disapere first
